@@ -20,6 +20,7 @@ public:
     WebSocket(String protocol, String h, int p, String pa) : host(h), port(p), path(pa), headers(""), onopen(nullptr), onclose(nullptr), onmessage(nullptr), onerror(nullptr) {
         if(protocol.startsWith("wss")) {
             client = new WiFiClientSecure();
+            client->setInsecure();
         } else {
             client = new WiFiClient();
         }
@@ -33,6 +34,10 @@ public:
         if (!client->connect(host.c_str(), port)) {
             hasConnection = false;
             if(onerror) onerror("Unable to establish TCP Connection");
+            if(reconnectInterval > 0) {
+                delay(reconnectInterval);
+                connect();
+            }
             return;
         }
 
@@ -58,10 +63,16 @@ public:
         hasConnection = response.indexOf("101 Switching Protocols") != -1;
 
         if(hasConnection && onopen) onopen();
-        else if(!hasConnection && onerror) onerror(response);
+        else if(!hasConnection && onerror) {
+            onerror(response);
+            if(reconnectInterval > 0) {
+                delay(reconnectInterval);
+                connect();
+            }
+        }
     }
 
-    void close(uint16_t code, String reason) {
+    void close(uint16_t code = 1000, String reason = "") {
         if (!client || !hasConnection) return;
 
         uint8_t payload[125];
