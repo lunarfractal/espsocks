@@ -245,8 +245,8 @@ public:
             }
 
             if (payloadLen > 2) {
-                for(int i = 0; i < payloadLen; i++) {
-                    reason += payload[payloadLen + 2 + i];
+                for(int i = 2; i < payloadLen; i++) {
+                    reason += (char)payload[i];
                 }
             }
 
