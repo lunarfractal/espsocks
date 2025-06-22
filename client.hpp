@@ -1,6 +1,6 @@
 #include <WiFiClient.h>
 #include <base64.h>
-#include <SHA1.h>
+#include <Hash.h>
 
 #define WS_FIN 0x80
 #define WS_MASK 0x80
@@ -94,7 +94,7 @@ public:
         hasConnection = false;
         client->stop();
 
-        if(onclose) onclose(code, reason);
+        if(onclose) onclose(code, (uint8_t*)reason.c_str());
     }
 
     void send(String data) {
@@ -226,22 +226,21 @@ public:
         }
 
         if (opcode == WS_OPCODE_TEXT || opcode == WS_OPCODE_BINARY) {
-            String message = String((char*)payload, payloadLen);
-            if (onmessage) onmessage(message, opcode);
+            if (onmessage) onmessage(payload, opcode);
         } else if (opcode == WS_OPCODE_PING) {
             if (onping) onping();
         } else if (opcode == WS_OPCODE_PONG) {
             if (onpong) onpong();
         } else if (opcode == WS_OPCODE_CLOSE) {
             uint16_t code = 1005;
-            String reason = "";
+            uint8_t* reason = {0};
 
             if (payloadLen >= 2) {
                 code = (payload[0] << 8) | payload[1];
             }
 
             if (payloadLen > 2) {
-                reason = String((char*)(payload + 2), payloadLen - 2);
+                reason = payload + 2;
             }
 
             hasConnection = false;
@@ -276,8 +275,8 @@ public:
     int reconnectInterval;
 
     void (*onopen)();
-    void (*onclose)(uint16_t, String);
-    void (*onmessage)(String, uint8_t);
+    void (*onclose)(uint16_t, uint8_t*);
+    void (*onmessage)(uint8_t*, uint8_t);
     void (*onerror)(String);
     void (*onping)();
     void (*onpong)();
