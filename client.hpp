@@ -2,6 +2,8 @@
 #include <base64.h>
 #include <Hash.h>
 
+#define DEBUG_WS
+
 #define WS_FIN 0x80
 #define WS_MASK 0x80
 #define WS_OPCODE_CONTINUATION 0x0
@@ -15,7 +17,7 @@
 
 class WebSocket {
 public:
-    WebSocket(String protocol, String h, uint16_t p, String pa) : host(h), port(p), path(pa), headers(""), onopen(nullptr), onclose(nullptr), onmessage(nullptr), onerror(nullptr) {
+    WebSocket(String protocol, String h, int p, String pa) : host(h), port(p), path(pa), headers(""), onopen(nullptr), onclose(nullptr), onmessage(nullptr), onerror(nullptr) {
         if(protocol.startsWith("wss")) {
             client = new WiFiClientSecure();
         } else {
@@ -30,6 +32,7 @@ public:
     void connect() {
         if (!client->connect(host.c_str(), port)) {
             hasConnection = false;
+            if(onerror) onerror("Unable to establish TCP Connection");
             return;
         }
 
@@ -94,7 +97,7 @@ public:
         hasConnection = false;
         client->stop();
 
-        if(onclose) onclose(code, (uint8_t*)reason.c_str());
+        if(onclose) onclose(code, reason);
     }
 
     void send(String data) {
@@ -216,8 +219,10 @@ public:
             client->read(maskKey, 4);
         }
 
-        uint8_t* payload = new uint8_t[payloadLen];
+        uint8_t* payload = new uint8_t[payloadLen + 1];
         client->read(payload, payloadLen);
+
+        payload[payloadLen] = 0x00;
 
         if (masked) {
             for (uint64_t i = 0; i < payloadLen; i++) {
@@ -226,21 +231,23 @@ public:
         }
 
         if (opcode == WS_OPCODE_TEXT || opcode == WS_OPCODE_BINARY) {
-            if (onmessage) onmessage(payload, opcode);
+            if (onmessage) onmessage(String((char*)payload), opcode);
         } else if (opcode == WS_OPCODE_PING) {
             if (onping) onping();
         } else if (opcode == WS_OPCODE_PONG) {
             if (onpong) onpong();
         } else if (opcode == WS_OPCODE_CLOSE) {
             uint16_t code = 1005;
-            uint8_t* reason = {0};
+            String reason = "";
 
             if (payloadLen >= 2) {
                 code = (payload[0] << 8) | payload[1];
             }
 
             if (payloadLen > 2) {
-                reason = payload + 2;
+                for(int i = 0; i < payloadLen; i++) {
+                    reason += payload[payloadLen + 2 + i];
+                }
             }
 
             hasConnection = false;
@@ -260,7 +267,7 @@ public:
 private:
     WiFiClient* client;
     String host, path;
-    uint16_t port;
+    int port;
     String headers;
 
     String getKey() {
@@ -275,8 +282,8 @@ public:
     int reconnectInterval;
 
     void (*onopen)();
-    void (*onclose)(uint16_t, uint8_t*);
-    void (*onmessage)(uint8_t*, uint8_t);
+    void (*onclose)(uint16_t, String);
+    void (*onmessage)(String, uint8_t);
     void (*onerror)(String);
     void (*onping)();
     void (*onpong)();
