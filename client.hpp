@@ -19,8 +19,9 @@ class WebSocket {
 public:
     WebSocket(String protocol, String h, int p, String pa) : host(h), port(p), path(pa), headers(""), onopen(nullptr), onclose(nullptr), onmessage(nullptr), onerror(nullptr) {
         if(protocol.startsWith("wss")) {
-            client = new WiFiClientSecure();
-            client->setInsecure();
+            WiFiClientSecure* secureClient = new WiFiClientSecure();
+            secureClient->setInsecure();
+            client = secureClient;
         } else {
             client = new WiFiClient();
         }
