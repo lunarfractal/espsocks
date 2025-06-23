@@ -226,6 +226,11 @@ public:
             }
         }
 
+        if(payloadLen > 2047) {
+            if(onerror) onerror("Received an overly large payload. Can't process it without throwing an exception.");
+            return;
+        }
+
         uint8_t maskKey[4];
         if (masked) {
             client->read(maskKey, 4);
